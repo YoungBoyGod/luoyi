@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const logFile = "ban_ip.txt"
+
 func runCmd(cmdStr string) (string, error) {
 	cmd := exec.Command("sh", "-c", cmdStr)
 	output, err := cmd.Output()
@@ -21,12 +23,43 @@ func runCmd(cmdStr string) (string, error) {
 	return string(output), nil
 }
 
+func logBan(ip string) error {
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	line := fmt.Sprintf("[%s] BANNED IP: %s\n", timestamp, ip)
+	_, err = f.WriteString(line)
+	return err
+}
+
 func main() {
 	// 设置循环
 	interval := 20 //5min
 
 	// 记录一下已经ban的ip
 	bannedIPs := make(map[string]bool)
+
+	// 从日志中加载。
+	if file, err := os.Open(logFile); err != nil {
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+			// 解析日志
+			if strings.Contains(line, "BANNED IP: ") {
+				parts := strings.Split(line, "BANNED IP: ")
+				if len(parts) == 2 {
+					ip := strings.TrimSpace(parts[1])
+					bannedIPs[ip] = true
+				}
+			}
+		}
+		file.Close()
+		fmt.Printf("✅ 已从日志加载 %d 个历史封禁IP\n", len(bannedIPs))
+	}
 
 	// 如果被中断就退出
 	ctx, cancel := context.WithCancel((context.Background()))
@@ -37,8 +70,8 @@ func main() {
 		fmt.Println("\n 收到了中断信号，正在退出。。。")
 		cancel()
 	}()
-	fmt.Printf("开始监控 lastb 日志，每 %d 秒运行一次...\n", interval)
-
+	fmt.Printf("🚀 启动暴力破解IP自动封禁监控（每 %d 秒检查一次）\n", interval)
+	fmt.Printf("📝 日志文件: %s\n\n", logFile)
 	// 主循环
 	for {
 		select {
@@ -53,8 +86,9 @@ func main() {
 		cmdGetNeedBanIP := "lastb | awk '{print $3}' |uniq | sort|uniq  | grep -v T "
 		ipListStr, err := runCmd(cmdGetNeedBanIP)
 		if err != nil {
-			fmt.Printf("获取需要ban的ip列表失败 %v\n", err)
-			return
+			fmt.Printf("⚠️ 获取IP失败: %v\n", err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			continue
 		}
 
 		// 2. ban it
@@ -75,12 +109,14 @@ func main() {
 
 			} else {
 				bannedIPs[ip] = true
-				newBanCount++
-				fmt.Printf("成功封禁ip: %s\n", ip)
+				if err := logBan(ip); err != nil {
+					fmt.Printf("❗ 写入日志失败 %s: %v\n", ip, err)
+				} else {
+					newBanCount++
+					fmt.Printf("✅ 成功封禁并记录日志: %s\n", ip)
+				}
+
 			}
-		}
-		if err := scanner.Err(); err != nil {
-			fmt.Printf("读取IP时出错: %v\n", err)
 		}
 
 		if newBanCount == 0 {
@@ -99,7 +135,16 @@ func main() {
 		//  把已经ban的写入到log中
 
 		fmt.Printf("⏳ 等待 %d 秒后下一轮检查...\n\n", interval)
-		time.Sleep(time.Duration(interval) * time.Second)
-
+		fmt.Println()
+		countdown(interval)
+		fmt.Println()
 	}
+}
+
+func countdown(seconds int) {
+	for i := seconds; i > 0; i-- {
+		fmt.Printf("\r⏳ 下一轮检查将在 %d 秒后开始... ", i)
+		time.Sleep(1 * time.Second)
+	}
+	fmt.Println("\r✅ 立即开始下一轮检查！           ") // 清除倒计时行
 }
