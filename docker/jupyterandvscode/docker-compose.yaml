@@ -3,19 +3,69 @@ version: "3.9"
 services:
   workspace:
     image: gpu-workspace:latest
-    container_name:
-      user001-workspace
-      # - NVIDIA_VISIBLE_DEVICES=all
-      # 如果是 MIG，改成：
-      # - NVIDIA_VISIBLE_DEVICES=MIG-GPU-xxxx/1/0
+    container_name: user001-workspace
+
+    # ========== 资源限制配置 ==========
+
+    # 内存限制
+    mem_limit: 16g              # 最大使用 16GB 内存
+    mem_reservation: 8g         # 保证至少 8GB
+    memswap_limit: 16g          # 禁用 swap（设置为与 mem_limit 相同）
+
+    # CPU 限制
+    cpus: 8                     # 最多使用 8 个 CPU 核心
+
+    # 磁盘空间限制（需要 Docker 支持 storage-opt）
+    # 如需启用，取消注释下面两行
+    # storage_opt:
+    #   size: '100G'            # 容器可写层限制 100GB
+
+    # 进程数限制
+    pids_limit: 2000            # 最多 2000 个进程
+
+    # I/O 权重（可选）
+    # blkio_weight: 500         # I/O 权重 (10-1000)
+
+    # ========== GPU 配置 ==========
+
+    # 使用 NVIDIA GPU
+    runtime: nvidia
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0    # 只能使用 GPU 0
+      # 其他选项：
+      # - NVIDIA_VISIBLE_DEVICES=all              # 使用所有 GPU
+      # - NVIDIA_VISIBLE_DEVICES=0,1              # 使用 GPU 0 和 1
+      # - NVIDIA_VISIBLE_DEVICES=MIG-GPU-xxx/1/0  # 使用 MIG 切片
+
+    # ========== 网络配置 ==========
 
     ports:
-      - "2222:22" # SSH
-      - "18888:8888" # Jupyter
-      - "18080:8080" # VSCode Web
-      - "19000-19010:9000-9010" # SSH -L 转发端口池
+      - "2222:22"                   # SSH
+      - "18888:8888"                # Jupyter Lab
+      - "18080:8080"                # VSCode Web
+      - "19000-19010:9000-9010"     # 端口转发池
+
+    # DNS 配置（可选，提升解析速度）
+    dns:
+      - 223.5.5.5                   # 阿里 DNS
+      - 8.8.8.8                     # Google DNS
+
+    # ========== 存储配置 ==========
 
     volumes:
       - ./data/user001:/home/gpuuser
 
+    # ========== 其他配置 ==========
+
     restart: unless-stopped
+
+    # 安全配置（可选）
+    # security_opt:
+    #   - no-new-privileges:true
+
+    # 只读根文件系统（可选，提高安全性）
+    # read_only: true
+    # tmpfs:
+    #   - /tmp
+    #   - /var/tmp
