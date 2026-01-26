@@ -1,0 +1,1 @@
+这个镜像可以直接启动一个jupyter和code-server  这样就可以直接远程访问
