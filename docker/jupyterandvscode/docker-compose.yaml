@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  workspace:
+    image: gpu-workspace:latest
+    container_name:
+      user001-workspace
+      # - NVIDIA_VISIBLE_DEVICES=all
+      # 如果是 MIG，改成：
+      # - NVIDIA_VISIBLE_DEVICES=MIG-GPU-xxxx/1/0
+
+    ports:
+      - "2222:22" # SSH
+      - "18888:8888" # Jupyter
+      - "18080:8080" # VSCode Web
+      - "19000-19010:9000-9010" # SSH -L 转发端口池
+
+    volumes:
+      - ./data/user001:/home/gpuuser
+
+    restart: unless-stopped
