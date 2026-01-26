@@ -26,10 +26,24 @@ RUN useradd -m -s /bin/bash gpuuser && \
     echo "gpuuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Python
-RUN pip3 install --no-cache-dir \
+# 3. 安装JupyterLab核心及相关组件
+RUN pip3 --no-cache-dir install -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn \
+    ipython \
     jupyterlab \
-    ipykernel
+    jupyter \
+    nbclassic \
+    notebook
 
+# 4.（可选）安装常用的JupyterLab扩展插件
+RUN pip3 --no-cache-dir install -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn \
+    jupyterlab-lsp \
+    anywidget \
+    kaleido \
+    pyviz_comms \
+    lckr_jupyterlab_variableinspector \
+    jupyterlab-spreadsheet-editor \
+    jupyterlab-spreadsheet \
+    jupyterlabcodetoc
 # VSCode Web
 RUN curl -fsSL https://code-server.dev/install.sh | sh
 
